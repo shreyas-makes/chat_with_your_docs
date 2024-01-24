@@ -1,4 +1,4 @@
-# LLM App Dev Workshop
+# Chat with your docs
 
 ## Introduction
 
@@ -56,84 +56,6 @@ curl -X POST http://ollama:11434/api/generate -d '{"model": "zephyr", "prompt": 
 
 All of these commands are also documented in our [cheat sheet](cheatsheet.txt).
 
-## Deployment
-
-
-### Podman
-
-Build the container based on [UBI9 Python 3.11](https://catalog.redhat.com/software/containers/ubi9/python-311/63f764b03f0b02a2e2d63fff?architecture=amd64&image=654d1ee47c3bfba06c9c59ea):
-
-```
-podman build -t linuxbot-app .
-```
-If you're building on arm64 Mac and deploy on amd64 then generally don't forget to add `--platform` (in this case our base image is amd64 anyways):
-
-```
-podman build --platform="linux/amd64" -t linuxbot-app .
-```
-
-We will create a network for our linuxbot and ollama:
-
-```
-podman network create linuxbot
-```
-
-Check if DNS is enabled (it's not on the default net):
-
-```
-podman network inspect linuxbot
-```
-
-Now you can either start Ollama locally with `ollama serve` or start a Ollama container with
-
-```
-podman run --net linuxbot --name ollama -p 11434:11434 --rm docker.io/ollama/ollama:latest
-```
- 
-Note: We just forward the port so we can curl it more easily locally as well.
-
-This ollama service won't have GPU support enabled and much slower compared to running it locally on a Mac M1 for example.
-
-Since we create the embeddings locally in the streamlit app we need to increase shared memory for Pytorch in order to get it running:
-
-```
-podman run --net linuxbot --name linuxbot-app -p 8080:8080 --shm-size=2gb -e OLLAMA_HOST=ollama -it --rm localhost/linuxbot-app
-```
-
-You can set the Ollama server via the environment variable `OLLAMA_HOST`, the default is `localhost`.
-
-NOTE: It would be much better to generate the embeddings with the ollama service, this is not yet supported in LlamaIndex though.
-
-### OpenShift
-
-Create a new project (namespace) for your workshop and deploy the ollama service in it:
-
-```
-oc new-project my-workshop
-oc apply -f deployments/ollama.yaml
-```
-
-If you want to enable GPU support you have to have to install and instantiate the NVIDIA GPU Operator and Node Feature Discovery (NFD) Operator as described on the [AI on OpenShift](https://ai-on-openshift.io/odh-rhoai/nvidia-gpus/) page, then deploy `ollama-gpu.yaml` instead.
-
-```
-oc apply -f deployments/ollama-gpu.yaml
-```
-
-The streamlit application (linuxbot) can deployed as:
-
-```
-oc apply -f deployments/linuxbot.yaml
-```
-
-We have published a preconfigured container image on [quay.io/sroecker](https://quay.io/sroecker/linuxbot-app) that is used in this deployment.
-
-In order to debug your application and ollama service you can deploy a curl image like this:
-
-```
-oc run mycurl --image=curlimages/curl -it -- sh
-oc attach mycurl -c mycurl -i -t
-oc delete pod mycurl
-```
 
 ## References
 
